@@ -325,6 +325,13 @@ grid-template-columns: 1fr;
 <div class="tool-description">Color palette generator, hex to RGB converter, and color picker tools for designers.</div>
 <span class="tool-status ready">Ready to Use</span>
 </div>
+
+<div class="tool-card" onclick="openTool('docpdf')">
+<div class="tool-icon">📄</div>
+<div class="tool-title">Word ↔ PDF Converter</div>
+<div class="tool-description">Convert DOCX files to PDF or PDF files to DOCX.</div>
+<span class="tool-status ready">Ready to Use</span>
+</div>
 </div>
 
 <!-- Digital Paint Tool -->
@@ -446,7 +453,23 @@ grid-template-columns: 1fr;
 </div>
 </div>
 </div>
+<!-- Word/PDF Converter -->
+<div id="docpdf-workspace" class="tool-workspace">
+  <div class="workspace-header">
+    <h2>Word ↔ PDF Converter</h2>
+    <button class="close-btn" onclick="closeTool('docpdf')">Close</button>
+  </div>
+  <select id="conversionType" class="chart-input" style="margin-bottom: 15px;">
+    <option value="wordtopdf">Word to PDF</option>
+    <option value="pdftoword">PDF to Word</option>
+  </select>
+  <div class="file-drop-zone" onclick="document.getElementById('docpdfInput').click()">
+    <p>📄 Click to select a DOCX or PDF file</p>
+    <input type="file" id="docpdfInput" class="file-input">
+  </div>
 </div>
+</div>
+
 
 <script>
 // Global variables
@@ -788,5 +811,82 @@ currentAngle += sliceAngle;
 let calcExpression = '';
 
 function calcInput(value) {
-calcExpression += value;
-document.getElementById('calcDisplay').value
+  calcExpression += value;
+  document.getElementById('calcDisplay').value = calcExpression;
+}
+
+function calcClear() {
+  calcExpression = '';
+  document.getElementById('calcDisplay').value = '';
+}
+
+function calcBackspace() {
+  calcExpression = calcExpression.slice(0, -1);
+  document.getElementById('calcDisplay').value = calcExpression;
+}
+
+function calcEquals() {
+  try {
+    calcExpression = eval(calcExpression).toString();
+    document.getElementById('calcDisplay').value = calcExpression;
+  } catch (e) {
+    alert('Invalid expression');
+  }
+}
+
+// Word/PDF Converter
+document.getElementById('docpdfInput').addEventListener('change', handleDocPdf);
+
+function handleDocPdf() {
+  const file = this.files[0];
+  if (!file) return;
+  const type = document.getElementById('conversionType').value;
+  if (type === 'wordtopdf') {
+    convertWordToPDF(file);
+  } else {
+    convertPDFToWord(file);
+  }
+}
+
+function convertWordToPDF(file) {
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const arrayBuffer = e.target.result;
+    const result = await mammoth.convertToHtml({ arrayBuffer });
+    const element = document.createElement('div');
+    element.innerHTML = result.value;
+    html2pdf().from(element).set({ filename: 'converted.pdf' }).save();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function convertPDFToWord(file) {
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const typedarray = new Uint8Array(e.target.result);
+    const pdf = await pdfjsLib.getDocument(typedarray).promise;
+    let text = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map(item => item.str).join(' ') + '\n';
+    }
+    const doc = new docx.Document({
+      sections: [{ children: [new docx.Paragraph(text)] }]
+    });
+    const blob = await docx.Packer.toBlob(doc);
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'converted.docx';
+    link.click();
+  };
+  reader.readAsArrayBuffer(file);
+}
+</script>
+<!-- External Libraries -->
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.4.17/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.12.313/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/7.1.0/docx.umd.js"></script>
+</body>
+</html>
